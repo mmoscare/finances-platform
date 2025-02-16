@@ -5,10 +5,8 @@ import { Button } from "@/components/ui/button";
 
 export const SubscriptionCheckout = () => {
   const checkout = useCheckoutSubscription();
-  const {
-    data: subscription,
-    isLoading: isLoadingSubscription,
-  } = useGetSubscription();
+  const { data: subscription, isLoading: isLoadingSubscription } =
+    useGetSubscription();
 
   return (
     <Button
