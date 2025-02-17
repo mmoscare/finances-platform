@@ -3,10 +3,10 @@
 
 // export default nextConfig;
 
-import dotenv from "dotenv";
+// import dotenv from "dotenv";
 
-// Load environment variables from .env.local
-dotenv.config({ path: ".env.local" });
+// // Load environment variables from .env.local
+// dotenv.config({ path: ".env.local" });
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
