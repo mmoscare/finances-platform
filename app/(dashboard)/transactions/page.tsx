@@ -192,8 +192,15 @@ const TransactionsPage = () => {
               deleteTransactions.mutate({ ids });
             }}
             //  pass an onSelectRows callback so we track what's selected
+            // onSelectRows={(rows) => {
+            //   const mapped = rows.map((r) => r.original);
+            //   setSelectedTransactions(mapped);
+            // }}
             onSelectRows={(rows) => {
-              const mapped = rows.map((r) => r.original);
+              const mapped = rows.map((r) => ({
+                ...r.original,
+                date: new Date(r.original.date), // Convert string to Date
+              }));
               setSelectedTransactions(mapped);
             }}
           />
