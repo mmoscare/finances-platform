@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import { format } from "date-fns";
 import { InferResponseType } from "hono";
@@ -15,7 +15,10 @@ import { Actions } from "./actions";
 import { AccountColumn } from "./account-column";
 import { CategoryColumn } from "./category-column";
 
-export type ResponseType = InferResponseType<typeof client.api.transactions.$get, 200>["data"][0];
+export type ResponseType = InferResponseType<
+  typeof client.api.transactions.$get,
+  200
+>["data"][0];
 
 export const columns: ColumnDef<ResponseType>[] = [
   {
@@ -51,17 +54,15 @@ export const columns: ColumnDef<ResponseType>[] = [
           Date
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
-      )
+      );
     },
     cell: ({ row }) => {
-      const date = row.getValue("date") as Date;
-
-      return (
-        <span>
-          {format(date, "dd MMMM, yyyy")}
-        </span>
-      )
-    }
+      // const date = row.getValue("date") as Date;
+      // return <span>{format(date, "dd MMMM, yyyy")}</span>;
+      const dateString = row.getValue("date") as string;
+      const date = new Date(dateString);
+      return <span>{format(date, "dd MMMM, yyyy")}</span>;
+    },
   },
   {
     accessorKey: "category",
@@ -74,7 +75,7 @@ export const columns: ColumnDef<ResponseType>[] = [
           Category
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
-      )
+      );
     },
     cell: ({ row }) => {
       return (
@@ -84,7 +85,7 @@ export const columns: ColumnDef<ResponseType>[] = [
           categoryId={row.original.categoryId}
         />
       );
-    }
+    },
   },
   {
     accessorKey: "payee",
@@ -97,7 +98,7 @@ export const columns: ColumnDef<ResponseType>[] = [
           Payee
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
-      )
+      );
     },
   },
   {
@@ -111,7 +112,7 @@ export const columns: ColumnDef<ResponseType>[] = [
           Amount
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
-      )
+      );
     },
     cell: ({ row }) => {
       const amount = parseFloat(row.getValue("amount"));
@@ -124,7 +125,7 @@ export const columns: ColumnDef<ResponseType>[] = [
           {formatCurrency(amount)}
         </Badge>
       );
-    }
+    },
   },
   {
     accessorKey: "account",
@@ -137,7 +138,7 @@ export const columns: ColumnDef<ResponseType>[] = [
           Account
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
-      )
+      );
     },
     cell: ({ row }) => {
       return (
@@ -145,11 +146,11 @@ export const columns: ColumnDef<ResponseType>[] = [
           account={row.original.account}
           accountId={row.original.accountId}
         />
-      )
-    }
+      );
+    },
   },
   {
     id: "actions",
-    cell: ({ row }) => <Actions id={row.original.id} />
-  }
+    cell: ({ row }) => <Actions id={row.original.id} />,
+  },
 ];
