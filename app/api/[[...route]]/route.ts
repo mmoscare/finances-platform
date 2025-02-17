@@ -1,4 +1,4 @@
-import { Hono } from "hono"
+import { Hono } from "hono";
 import { handle } from "hono/vercel";
 
 import plaid from "./plaid";
@@ -18,7 +18,14 @@ const routes = app
   .route("/accounts", accounts)
   .route("/categories", categories)
   .route("/transactions", transactions)
-  .route("/subscriptions", subscriptions)
+  .route("/subscriptions", subscriptions);
+
+// ✅ Add a debug route to log Vercel's IP
+app.get("/debug/ip", (c) => {
+  const userIP = c.req.header("x-forwarded-for") || "Unknown IP";
+  console.log("Vercel Server IP:", userIP);
+  return c.json({ ip: userIP });
+});
 
 export const GET = handle(app);
 export const POST = handle(app);
