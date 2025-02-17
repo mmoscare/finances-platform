@@ -43,6 +43,7 @@
     "next": "14.2.3",
     "next-themes": "^0.3.0",
     "plaid": "^23.0.0",
+    "psql": "^0.0.1",
     "query-string": "^9.0.0",
     "react": "^18",
     "react-countup": "^6.5.3",
