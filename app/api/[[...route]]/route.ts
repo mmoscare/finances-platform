@@ -7,8 +7,9 @@ import accounts from "./accounts";
 import categories from "./categories";
 import transactions from "./transactions";
 import subscriptions from "./subscriptions";
-
 import enrichedTransactions from "./enriched_transactions";
+
+// import budget from "./budget";
 
 export const runtime = "nodejs";
 
@@ -22,6 +23,7 @@ const routes = app
   .route("/transactions", transactions)
   .route("/subscriptions", subscriptions)
   .route("/enriched_transactions", enrichedTransactions);
+// .route("/budget", budget);
 
 // ✅ Add a debug route to log Vercel's IP
 app.get("/debug/ip", (c) => {
