@@ -1,324 +1,10 @@
-// import { z } from "zod";
-// import { Hono } from "hono";
-// import { parse, subDays } from "date-fns";
-// import { createId } from "@paralleldrive/cuid2";
-// import { zValidator } from "@hono/zod-validator";
-// import { clerkMiddleware, getAuth } from "@hono/clerk-auth";
-// import { and, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
-
-// import { db } from "@/db/drizzle";
-// import {
-//   transactions,
-//   insertTransactionSchema,
-//   categories,
-//   accounts
-// } from "@/db/schema";
-
-// const app = new Hono()
-//   .get(
-//     "/",
-//     zValidator("query", z.object({
-//       from: z.string().optional(),
-//       to: z.string().optional(),
-//       accountId: z.string().optional(),
-//     })),
-//     clerkMiddleware(),
-//     async (c) => {
-//       const auth = getAuth(c);
-//       const { from, to, accountId } = c.req.valid("query");
-
-//       if (!auth?.userId) {
-//         return c.json({ error: "Unauthorized" }, 401);
-//       }
-
-//       const defaultTo = new Date();
-//       const defaultFrom = subDays(defaultTo, 30);
-
-//       const startDate = from
-//         ? parse(from, "yyyy-MM-dd", new Date())
-//         : defaultFrom;
-//       const endDate = to
-//         ? parse(to, "yyyy-MM-dd", new Date())
-//         : defaultTo;
-
-//       const data = await db
-//         .select({
-//           id: transactions.id,
-//           date: transactions.date,
-//           category: categories.name,
-//           categoryId: transactions.categoryId,
-//           payee: transactions.payee,
-//           amount: transactions.amount,
-//           notes: transactions.notes,
-//           account: accounts.name,
-//           accountId: transactions.accountId,
-//         })
-//         .from(transactions)
-//         .innerJoin(accounts, eq(transactions.accountId, accounts.id))
-//         .leftJoin(categories, eq(transactions.categoryId, categories.id))
-//         .where(
-//           and(
-//             accountId ? eq(transactions.accountId, accountId) : undefined,
-//             eq(accounts.userId, auth.userId),
-//             gte(transactions.date, startDate),
-//             lte(transactions.date, endDate),
-//           )
-//         )
-//         .orderBy(desc(transactions.date));
-
-//       return c.json({ data });
-//   })
-//   .get(
-//     "/:id",
-//     zValidator("param", z.object({
-//       id: z.string().optional(),
-//     })),
-//     clerkMiddleware(),
-//     async (c) => {
-//       const auth = getAuth(c);
-//       const { id } = c.req.valid("param");
-
-//       if (!id) {
-//         return c.json({ error: "Missing id" }, 400);
-//       }
-
-//       if (!auth?.userId) {
-//         return c.json({ error: "Unauthorized" }, 401);
-//       }
-
-//       const [data] = await db
-//         .select({
-//           id: transactions.id,
-//           date: transactions.date,
-//           categoryId: transactions.categoryId,
-//           payee: transactions.payee,
-//           amount: transactions.amount,
-//           notes: transactions.notes,
-//           accountId: transactions.accountId,
-//         })
-//         .from(transactions)
-//         .innerJoin(accounts, eq(transactions.accountId, accounts.id))
-//         .where(
-//           and(
-//             eq(transactions.id, id),
-//             eq(accounts.userId, auth.userId),
-//           ),
-//         );
-
-//       if (!data) {
-//         return c.json({ error: "Not found" }, 404);
-//       }
-
-//       return c.json({ data });
-//     }
-//   )
-//   .post(
-//     "/",
-//     clerkMiddleware(),
-//     zValidator("json", insertTransactionSchema.omit({
-//       id: true,
-//     })),
-//     async (c) => {
-//       const auth = getAuth(c);
-//       const values = c.req.valid("json");
-
-//       if (!auth?.userId) {
-//         return c.json({ error: "Unauthorized" }, 401);
-//       }
-
-//       const [data] = await db.insert(transactions).values({
-//         id: createId(),
-//         ...values,
-//       }).returning();
-
-//       return c.json({ data });
-//   })
-//   .post(
-//     "/bulk-create",
-//     clerkMiddleware(),
-//     zValidator(
-//       "json",
-//       z.array(
-//         insertTransactionSchema.omit({
-//           id: true,
-//         }),
-//       ),
-//     ),
-//     async (c) => {
-//       const auth = getAuth(c);
-//       const values = c.req.valid("json");
-
-//       if (!auth?.userId) {
-//         return c.json({ error: "Unauthorized" }, 401);
-//       }
-
-//       const data = await db
-//         .insert(transactions)
-//         .values(
-//           values.map((value) => ({
-//             id: createId(),
-//             ...value,
-//           }))
-//         )
-//         .returning();
-
-//       return c.json({ data });
-//     },
-//   )
-//   .post(
-//     "/bulk-delete",
-//     clerkMiddleware(),
-//     zValidator(
-//       "json",
-//       z.object({
-//         ids: z.array(z.string()),
-//       }),
-//     ),
-//     async (c) => {
-//       const auth = getAuth(c);
-//       const values = c.req.valid("json");
-
-//       if (!auth?.userId) {
-//         return c.json({ error: "Unauthorized" }, 401);
-//       }
-
-//       const transactionsToDelete = db.$with("transactions_to_delete").as(
-//         db.select({ id: transactions.id }).from(transactions)
-//           .innerJoin(accounts, eq(transactions.accountId, accounts.id))
-//           .where(and(
-//             inArray(transactions.id, values.ids),
-//             eq(accounts.userId, auth.userId),
-//           )),
-//       );
-
-//       const data = await db
-//         .with(transactionsToDelete)
-//         .delete(transactions)
-//         .where(
-//           inArray(transactions.id, sql`(select id from ${transactionsToDelete})`)
-//         )
-//         .returning({
-//           id: transactions.id,
-//         });
-
-//       return c.json({ data });
-//     },
-//   )
-//   .patch(
-//     "/:id",
-//     clerkMiddleware(),
-//     zValidator(
-//       "param",
-//       z.object({
-//         id: z.string().optional(),
-//       }),
-//     ),
-//     zValidator(
-//       "json",
-//       insertTransactionSchema.omit({
-//         id: true,
-//       })
-//     ),
-//     async (c) => {
-//       const auth = getAuth(c);
-//       const { id } = c.req.valid("param");
-//       const values = c.req.valid("json");
-
-//       if (!id) {
-//         return c.json({ error: "Missing id" }, 400);
-//       }
-
-//       if (!auth?.userId) {
-//         return c.json({ error: "Unauthorized" }, 401);
-//       }
-
-//       const transactionsToUpdate = db.$with("transactions_to_update").as(
-//         db.select({ id: transactions.id })
-//           .from(transactions)
-//           .innerJoin(accounts, eq(transactions.accountId, accounts.id))
-//           .where(and(
-//             eq(transactions.id, id),
-//             eq(accounts.userId, auth.userId),
-//           )),
-//       );
-
-//       const [data] = await db
-//         .with(transactionsToUpdate)
-//         .update(transactions)
-//         .set(values)
-//         .where(
-//           inArray(transactions.id, sql`(select id from ${transactionsToUpdate})`)
-//         )
-//         .returning();
-
-//       if (!data) {
-//         return c.json({ error: "Not found" }, 404);
-//       }
-
-//       return c.json({ data });
-//     },
-//   )
-//   .delete(
-//     "/:id",
-//     clerkMiddleware(),
-//     zValidator(
-//       "param",
-//       z.object({
-//         id: z.string().optional(),
-//       }),
-//     ),
-//     async (c) => {
-//       const auth = getAuth(c);
-//       const { id } = c.req.valid("param");
-
-//       if (!id) {
-//         return c.json({ error: "Missing id" }, 400);
-//       }
-
-//       if (!auth?.userId) {
-//         return c.json({ error: "Unauthorized" }, 401);
-//       }
-
-//       const transactionsToDelete = db.$with("transactions_to_delete").as(
-//         db.select({ id: transactions.id })
-//           .from(transactions)
-//           .innerJoin(accounts, eq(transactions.accountId, accounts.id))
-//           .where(and(
-//             eq(transactions.id, id),
-//             eq(accounts.userId, auth.userId),
-//           )),
-//       );
-
-//       const [data] = await db
-//         .with(transactionsToDelete)
-//         .delete(transactions)
-//         .where(
-//           inArray(
-//             transactions.id,
-//             sql`(select id from ${transactionsToDelete})`
-//           ),
-//         )
-//         .returning({
-//           id: transactions.id,
-//         });
-
-//       if (!data) {
-//         return c.json({ error: "Not found" }, 404);
-//       }
-
-//       return c.json({ data });
-//     },
-//   );
-
-// export default app;
-
 import { z } from "zod";
 import { Hono } from "hono";
 import { parse, subDays } from "date-fns";
 import { createId } from "@paralleldrive/cuid2";
 import { zValidator } from "@hono/zod-validator";
 import { clerkMiddleware, getAuth } from "@hono/clerk-auth";
-import { and, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lte } from "drizzle-orm";
 
 import { db } from "@/db/drizzle";
 import {
@@ -335,16 +21,19 @@ import {
   deleteTransaction as deleteTxnOps,
 } from "@/db/transactionsOps";
 
-// 2) Import AWS SDK items for the /aws route
+// 2) Import AWS SDK items for the /aws route (unchanged)
 import { dynamoClient } from "@/aws/awsDynamoClient";
-import { GetItemCommand, PutItemCommand } from "@aws-sdk/client-dynamodb";
+import {
+  GetItemCommand,
+  PutItemCommand,
+  ScanCommand,
+} from "@aws-sdk/client-dynamodb";
 
-// Initialize Hono app
 const app = new Hono()
 
   // ----------------------------------------------------------------
   // GET /?from=YYYY-MM-DD&to=...&accountId=...
-  //  (Unchanged: read from PG only, no sync needed)
+  // *** UPDATED TO READ FROM DYNAMODB INSTEAD OF DRIZZLE ***
   // ----------------------------------------------------------------
   .get(
     "/",
@@ -365,45 +54,109 @@ const app = new Hono()
         return c.json({ error: "Unauthorized" }, 401);
       }
 
+      // Default ranges if not specified
       const defaultTo = new Date();
       const defaultFrom = subDays(defaultTo, 30);
-
       const startDate = from
         ? parse(from, "yyyy-MM-dd", new Date())
         : defaultFrom;
       const endDate = to ? parse(to, "yyyy-MM-dd", new Date()) : defaultTo;
 
-      const data = await db
-        .select({
-          id: transactions.id,
-          date: transactions.date,
-          category: categories.name,
-          categoryId: transactions.categoryId,
-          payee: transactions.payee,
-          amount: transactions.amount,
-          notes: transactions.notes,
-          account: accounts.name,
-          accountId: transactions.accountId,
+      // 1) Fetch all transactions from DynamoDB
+      const tableName = "transactions";
+      const scanRes = await dynamoClient.send(
+        new ScanCommand({
+          TableName: tableName,
         })
-        .from(transactions)
-        .innerJoin(accounts, eq(transactions.accountId, accounts.id))
-        .leftJoin(categories, eq(transactions.categoryId, categories.id))
-        .where(
-          and(
-            accountId ? eq(transactions.accountId, accountId) : undefined,
-            eq(accounts.userId, auth.userId),
-            gte(transactions.date, startDate),
-            lte(transactions.date, endDate)
-          )
-        )
-        .orderBy(desc(transactions.date));
+      );
+      const items = scanRes.Items || [];
+
+      // 2) Fetch user’s accounts & categories from Postgres for name lookups
+      const userAccounts = await db
+        .select({
+          accId: accounts.id,
+          accName: accounts.name,
+        })
+        .from(accounts)
+        .where(eq(accounts.userId, auth.userId));
+
+      const userCategories = await db
+        .select({
+          catId: categories.id,
+          catName: categories.name,
+        })
+        .from(categories);
+      // categories table typically has userId, or is shared
+      // if needed, filter here with eq(categories.userId, auth.userId)
+      // Create quick lookups for account/category names
+      const accountMap = new Map<string, string>(
+        userAccounts.map((a) => [a.accId, a.accName])
+      );
+      const categoryMap = new Map<string, string>(
+        userCategories.map((cat) => [cat.catId, cat.catName])
+      );
+
+      // 3) Convert each Dynamo item into the shape we need (including name lookups)
+      //    Also filter by user ownership by checking if item.accountId belongs to the current user
+      //    Then filter by date range / accountId if needed
+      let data = items
+        .map((item) => {
+          // Attempt to parse item fields
+          const txnId = item.id?.S || "";
+          const amountStr = item.amount?.N || "0";
+          const payee = item.payee?.S || "";
+          const notes = item.notes?.S ?? null; // notes might be { NULL: true }
+          const dateStr = item.date?.S || "";
+          const acctId = item.accountId?.S || "";
+          const catId = item.categoryId?.S || null;
+
+          // Convert date, amount
+          const dateObj = new Date(dateStr);
+          const amountInMiliunits = parseInt(amountStr, 10);
+
+          return {
+            id: txnId,
+            date: dateObj,
+            categoryId: catId,
+            // name from categories table (or "Uncategorized" if missing)
+            category: catId ? categoryMap.get(catId) ?? null : null,
+            payee,
+            amount: amountInMiliunits,
+            notes,
+            accountId: acctId,
+            // name from accounts table
+            account: acctId ? accountMap.get(acctId) ?? "Unknown" : "Unknown",
+          };
+        })
+        .filter((tx) => {
+          // user ownership check: the account ID must be in userAccounts
+          // If the transaction’s accountId is not in userAccounts, skip
+          if (!accountMap.has(tx.accountId)) {
+            return false;
+          }
+
+          // Filter by date range
+          if (tx.date < startDate || tx.date > endDate) {
+            return false;
+          }
+
+          // Filter by accountId if provided
+          if (accountId && tx.accountId !== accountId) {
+            return false;
+          }
+
+          return true;
+        })
+        // Sort descending by date
+        .sort((a, b) => b.date.getTime() - a.date.getTime());
 
       return c.json({ data });
     }
   )
 
   // ----------------------------------------------------------------
-  // GET /:id  (Unchanged)
+  // GET /:id
+  // *** UPDATED TO READ A SINGLE TRANSACTION FROM DYNAMODB ***
   // ----------------------------------------------------------------
   .get(
     "/:id",
@@ -426,30 +179,80 @@ const app = new Hono()
         return c.json({ error: "Unauthorized" }, 401);
       }
 
-      const [data] = await db
-        .select({
-          id: transactions.id,
-          date: transactions.date,
-          categoryId: transactions.categoryId,
-          payee: transactions.payee,
-          amount: transactions.amount,
-          notes: transactions.notes,
-          accountId: transactions.accountId,
+      // Fetch item from Dynamo by ID
+      const tableName = "transactions";
+      const getRes = await dynamoClient.send(
+        new GetItemCommand({
+          TableName: tableName,
+          Key: { id: { S: id } },
         })
-        .from(transactions)
-        .innerJoin(accounts, eq(transactions.accountId, accounts.id))
-        .where(and(eq(transactions.id, id), eq(accounts.userId, auth.userId)));
+      );
 
-      if (!data) {
+      if (!getRes.Item) {
+        // Not found in Dynamo
         return c.json({ error: "Not found" }, 404);
       }
+
+      // Also fetch the user’s accounts/categories to check ownership & get names
+      const userAccounts = await db
+        .select({
+          accId: accounts.id,
+          accName: accounts.name,
+        })
+        .from(accounts)
+        .where(eq(accounts.userId, auth.userId));
+
+      const userCategories = await db
+        .select({
+          catId: categories.id,
+          catName: categories.name,
+        })
+        .from(categories);
+
+      const accountMap = new Map<string, string>(
+        userAccounts.map((a) => [a.accId, a.accName])
+      );
+      const categoryMap = new Map<string, string>(
+        userCategories.map((cat) => [cat.catId, cat.catName])
+      );
+
+      // Parse Dynamo item
+      const item = getRes.Item;
+      const txnId = item.id?.S || "";
+      const amountStr = item.amount?.N || "0";
+      const payee = item.payee?.S || "";
+      const notes = item.notes?.S ?? null;
+      const dateStr = item.date?.S || "";
+      const acctId = item.accountId?.S || "";
+      const catId = item.categoryId?.S || null;
+
+      // Convert date, amount
+      const dateObj = new Date(dateStr);
+      const amountInMiliunits = parseInt(amountStr, 10);
+
+      // Check ownership: if accountId not in user’s accounts, 404
+      if (!accountMap.has(acctId)) {
+        return c.json({ error: "Not found" }, 404);
+      }
+
+      const data = {
+        id: txnId,
+        date: dateObj,
+        categoryId: catId,
+        category: catId ? categoryMap.get(catId) ?? null : null,
+        payee,
+        amount: amountInMiliunits,
+        notes,
+        accountId: acctId,
+        account: acctId ? accountMap.get(acctId) ?? "Unknown" : "Unknown",
+      };
 
       return c.json({ data });
     }
   )
 
   // ----------------------------------------------------------------
-  // POST /  Create a Single Transaction (Uses Ops)
+  // POST /  Create a Single Transaction (Uses Ops) -- UNCHANGED
   // ----------------------------------------------------------------
   .post(
     "/",
@@ -457,22 +260,20 @@ const app = new Hono()
     zValidator("json", insertTransactionSchema.omit({ id: true })),
     async (c) => {
       const auth = getAuth(c);
-      const values = c.req.valid("json"); // e.g. { date, payee, amount, ... }
+      const values = c.req.valid("json");
 
       if (!auth?.userId) {
         return c.json({ error: "Unauthorized" }, 401);
       }
 
-      // Generate an ID for Drizzle & Dynamo
       const txnId = createId();
 
-      // Instead of direct db.insert(...), call ops
       const data = await createTxnOps({
         id: txnId,
         amount: values.amount,
         payee: values.payee,
         notes: values.notes ?? null,
-        date: values.date, // ensure Date or parse as needed
+        date: values.date,
         accountId: values.accountId,
         categoryId: values.categoryId ?? null,
       });
@@ -482,7 +283,7 @@ const app = new Hono()
   )
 
   // ----------------------------------------------------------------
-  // POST /bulk-create (Uses Ops in a loop or Promise.all)
+  // POST /bulk-create (Uses Ops) -- UNCHANGED
   // ----------------------------------------------------------------
   .post(
     "/bulk-create",
@@ -490,7 +291,7 @@ const app = new Hono()
     zValidator("json", z.array(insertTransactionSchema.omit({ id: true }))),
     async (c) => {
       const auth = getAuth(c);
-      const values = c.req.valid("json"); // array of transaction data
+      const values = c.req.valid("json");
 
       if (!auth?.userId) {
         return c.json({ error: "Unauthorized" }, 401);
@@ -516,7 +317,7 @@ const app = new Hono()
   )
 
   // ----------------------------------------------------------------
-  // POST /bulk-delete (Uses deleteTransaction for each ID)
+  // POST /bulk-delete (Uses Ops) -- UNCHANGED
   // ----------------------------------------------------------------
   .post(
     "/bulk-delete",
@@ -535,7 +336,7 @@ const app = new Hono()
         return c.json({ error: "Unauthorized" }, 401);
       }
 
-      // check user ownership (like your existing code)
+      // check user ownership
       const authorizedIds = await db
         .select({ id: transactions.id })
         .from(transactions)
@@ -544,7 +345,6 @@ const app = new Hono()
           and(inArray(transactions.id, ids), eq(accounts.userId, auth.userId))
         );
 
-      // Then delete them one by one
       const results = await Promise.all(
         authorizedIds.map((row) => deleteTxnOps(row.id))
       );
@@ -554,7 +354,7 @@ const app = new Hono()
   )
 
   // ----------------------------------------------------------------
-  // PATCH /:id (Uses updateTransaction)
+  // PATCH /:id (Uses updateTransaction) -- UNCHANGED
   // ----------------------------------------------------------------
   .patch(
     "/:id",
@@ -584,7 +384,6 @@ const app = new Hono()
         return c.json({ error: "Not found" }, 404);
       }
 
-      // update via ops
       const data = await updateTxnOps(id, {
         amount: values.amount,
         payee: values.payee,
@@ -599,7 +398,7 @@ const app = new Hono()
   )
 
   // ----------------------------------------------------------------
-  // DELETE /:id (Uses deleteTransaction)
+  // DELETE /:id (Uses deleteTransaction) -- UNCHANGED
   // ----------------------------------------------------------------
   .delete(
     "/:id",
@@ -627,14 +426,13 @@ const app = new Hono()
         return c.json({ error: "Not found" }, 404);
       }
 
-      // delete via ops
       const deleted = await deleteTxnOps(id);
       return c.json({ data: { id: deleted.id } });
     }
   )
 
   // ----------------------------------------------------------------
-  // POST /aws (New route to skip duplicates in DynamoDB)
+  // POST /aws (New route to skip duplicates in DynamoDB) -- UNCHANGED
   // ----------------------------------------------------------------
   .post(
     "/aws",
@@ -647,7 +445,7 @@ const app = new Hono()
           amount: z.number(),
           payee: z.string(),
           notes: z.string().nullable().optional(),
-          date: z.string(), // or z.date(), but likely an ISO string
+          date: z.string(),
           accountId: z.string(),
           categoryId: z.string().nullable().optional(),
         })
@@ -659,17 +457,11 @@ const app = new Hono()
         return c.json({ error: "Unauthorized" }, 401);
       }
 
-      // parse incoming array of transactions
       const body = c.req.valid("json");
-
-      // (Optionally) check user owns these if you'd like
-      // for now we assume it's safe
-
-      const tableName = "transactions"; // your DynamoDB table name
+      const tableName = "transactions";
       const results: Array<{ id: string; status: string }> = [];
 
       for (const tx of body) {
-        // 1) Check if item with this ID exists in Dynamo
         const getRes = await dynamoClient.send(
           new GetItemCommand({
             TableName: tableName,
@@ -678,10 +470,8 @@ const app = new Hono()
         );
 
         if (getRes.Item) {
-          // skip
           results.push({ id: tx.id, status: "skipped_exists" });
         } else {
-          // 2) If not found, put it
           await dynamoClient.send(
             new PutItemCommand({
               TableName: tableName,
@@ -706,5 +496,4 @@ const app = new Hono()
     }
   );
 
-// Export the Hono app as default
 export default app;

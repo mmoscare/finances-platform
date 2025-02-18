@@ -7,11 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { NavButton } from "@/components/nav-button";
-import {
-  Sheet,
-  SheetContent,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 const routes = [
   {
@@ -21,6 +17,10 @@ const routes = [
   {
     href: "/transactions",
     label: "Transactions",
+  },
+  {
+    href: "/enriched_transactions",
+    label: "Enriched",
   },
   {
     href: "/accounts",

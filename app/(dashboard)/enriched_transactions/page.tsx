@@ -2,13 +2,13 @@
 
 import { toast } from "sonner";
 import { useState } from "react";
-import { Loader2, Plus, Cloud } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 
 import { useNewTransaction } from "@/features/transactions/hooks/use-new-transaction";
-import { useGetTransactions } from "@/features/transactions/api/use-get-transactions";
-import { useBulkDeleteTransactions } from "@/features/transactions/api/use-bulk-delete-transactions";
+import { useBulkDeleteEnrichedTransactions } from "@/features/enriched_transactions/api/use-bulk-delete-enriched-transactions";
 import { useBulkCreateTransactions } from "@/features/transactions/api/use-bulk-create-transactions";
 import { useSelectAccount } from "@/features/accounts/hooks/use-select-account";
+import { useGetEnrichedTransactions } from "@/features/enriched_transactions/api/use-get-enriched-transactions";
 
 import { transactions as transactionSchema } from "@/db/schema";
 import { Button } from "@/components/ui/button";
@@ -31,12 +31,11 @@ const INITIAL_IMPORT_RESULTS = {
   meta: {},
 };
 
-const TransactionsPage = () => {
+const EnrichedTransactionsPage = () => {
   const [AccountDialog, confirm] = useSelectAccount();
   const [variant, setVariant] = useState<VARIANTS>(VARIANTS.LIST);
   const [importResults, setImportResults] = useState(INITIAL_IMPORT_RESULTS);
 
-  // Track selected transactions
   const [selectedTransactions, setSelectedTransactions] = useState<
     (typeof transactionSchema.$inferSelect)[]
   >([]);
@@ -53,58 +52,16 @@ const TransactionsPage = () => {
 
   const newTransaction = useNewTransaction();
   const createTransactions = useBulkCreateTransactions();
-  const deleteTransactions = useBulkDeleteTransactions();
-  const transactionsQuery = useGetTransactions();
+
+  // Use your new bulk‐delete-enriched hook:
+  const deleteEnrichedTransactions = useBulkDeleteEnrichedTransactions();
+
+  // Fetch from `enriched_transactions`:
+  const transactionsQuery = useGetEnrichedTransactions();
   const transactions = transactionsQuery.data || [];
 
   const isDisabled =
-    transactionsQuery.isLoading || deleteTransactions.isPending;
-
-  // Instead of uploading to AWS transactions table,
-  // this now uploads to "enriched_transactions" with an extra column "categoryB".
-  async function uploadSelectedToEnriched() {
-    if (!selectedTransactions.length) {
-      toast.error("No transactions selected to upload.");
-      return;
-    }
-
-    try {
-      const res = await fetch("/api/enriched_transactions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(
-          selectedTransactions.map((t) => ({
-            id: t.id,
-            amount: t.amount * 1,
-            payee: t.payee,
-            notes: t.notes,
-            date: t.date,
-            accountId: t.accountId,
-            categoryId: t.categoryId ?? null,
-            // New field for the enriched_transactions table
-            categoryB: "default",
-            essential: "default",
-            timing: "default",
-            rop: "default",
-          }))
-        ),
-      });
-
-      if (!res.ok) {
-        const { error } = await res.json();
-        throw new Error(
-          error || "Failed to upload to api/enriched_transactions"
-        );
-      }
-
-      const { results } = await res.json();
-      toast.success("Uploaded selected to api/enriched_transactions!");
-      console.log("Enriched results:", results);
-    } catch (err: any) {
-      console.error(err);
-      toast.error(err.message);
-    }
-  }
+    transactionsQuery.isLoading || deleteEnrichedTransactions.isPending;
 
   const onSubmitImport = async (
     values: (typeof transactionSchema.$inferInsert)[]
@@ -114,16 +71,14 @@ const TransactionsPage = () => {
       return toast.error("Please select an account to continue.");
     }
 
-    const data = values.map((value) => ({
-      ...value,
-      accountId: accountId as string,
-    }));
-
-    createTransactions.mutate(data, {
-      onSuccess: () => {
-        onCancelImport();
-      },
-    });
+    createTransactions.mutate(
+      values.map((v) => ({ ...v, accountId: accountId as string })),
+      {
+        onSuccess: () => {
+          onCancelImport();
+        },
+      }
+    );
   };
 
   if (transactionsQuery.isLoading) {
@@ -161,20 +116,9 @@ const TransactionsPage = () => {
       <Card className="border-none drop-shadow-sm">
         <CardHeader className="gap-y-2 lg:flex-row lg:items-center lg:justify-between">
           <CardTitle className="text-xl line-clamp-1">
-            Transaction History
+            Enriched Transaction History
           </CardTitle>
           <div className="flex flex-col lg:flex-row gap-y-2 items-center gap-x-2">
-            {/* Re-purposed AWS button -> now uploads to enriched_transactions */}
-            <Button
-              onClick={uploadSelectedToEnriched}
-              size="sm"
-              className="w-full lg:w-auto"
-              disabled={isDisabled}
-            >
-              <Cloud className="size-4 mr-2" />
-              Enrich
-            </Button>
-
             <Button
               onClick={newTransaction.onOpen}
               size="sm"
@@ -194,13 +138,15 @@ const TransactionsPage = () => {
             data={transactions}
             disabled={isDisabled}
             onDelete={(rows) => {
+              // Bulk delete
               const ids = rows.map((r) => r.original.id);
-              deleteTransactions.mutate({ ids });
+              deleteEnrichedTransactions.mutate({ ids });
             }}
             onSelectRows={(rows) => {
+              // Track selected
               const mapped = rows.map((r) => ({
                 ...r.original,
-                date: new Date(r.original.date), // Convert string to Date
+                date: new Date(r.original.date),
               }));
               setSelectedTransactions(mapped);
             }}
@@ -211,4 +157,4 @@ const TransactionsPage = () => {
   );
 };
 
-export default TransactionsPage;
+export default EnrichedTransactionsPage;

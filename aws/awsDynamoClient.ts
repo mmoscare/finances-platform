@@ -1,4 +1,5 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+require("dotenv").config({ path: ".env.local" });
 
 export const dynamoClient = new DynamoDBClient({
   region: process.env.AWS_REGION || "us-east-1",

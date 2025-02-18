@@ -8,6 +8,8 @@ import categories from "./categories";
 import transactions from "./transactions";
 import subscriptions from "./subscriptions";
 
+import enrichedTransactions from "./enriched_transactions";
+
 export const runtime = "nodejs";
 
 const app = new Hono().basePath("/api");
@@ -18,7 +20,8 @@ const routes = app
   .route("/accounts", accounts)
   .route("/categories", categories)
   .route("/transactions", transactions)
-  .route("/subscriptions", subscriptions);
+  .route("/subscriptions", subscriptions)
+  .route("/enriched_transactions", enrichedTransactions);
 
 // ✅ Add a debug route to log Vercel's IP
 app.get("/debug/ip", (c) => {
