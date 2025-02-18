@@ -119,15 +119,15 @@ const EnrichedTransactionsPage = () => {
             Enriched Transaction History
           </CardTitle>
           <div className="flex flex-col lg:flex-row gap-y-2 items-center gap-x-2">
-            <Button
+            {/* <Button
               onClick={newTransaction.onOpen}
               size="sm"
               className="w-full lg:w-auto"
             >
               <Plus className="size-4 mr-2" />
               Add new
-            </Button>
-            <UploadButton onUpload={onUpload} />
+            </Button> */}
+            {/* <UploadButton onUpload={onUpload} /> */}
           </div>
         </CardHeader>
 
